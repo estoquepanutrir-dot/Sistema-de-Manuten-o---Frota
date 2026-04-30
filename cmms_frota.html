@@ -1,0 +1,1888 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CMMS — Gestão de Frota</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --navy: #0a1628;
+  --navy-mid: #112240;
+  --navy-light: #1a3560;
+  --navy-border: #1e3d6b;
+  --red: #c0392b;
+  --red-soft: #922b21;
+  --red-glow: rgba(192,57,43,0.15);
+  --slate: #8899aa;
+  --slate-light: #aabbc9;
+  --white: #f0f4f8;
+  --white-pure: #ffffff;
+  --green: #1a7a4a;
+  --green-light: #27ae60;
+  --yellow: #b7950b;
+  --yellow-light: #f1c40f;
+  --danger: #e74c3c;
+  --warning: #f39c12;
+  --ok: #2ecc71;
+  --card-bg: #0f1e38;
+  --input-bg: #0d1a30;
+  --font-head: 'Rajdhani', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --transition: 0.18s ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; }
+
+body {
+  background: var(--navy);
+  color: var(--white);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ─── TOP BAR ─── */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--navy-mid);
+  border-bottom: 2px solid var(--red);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 1000;
+  gap: 12px;
+}
+
+.topbar-logo {
+  font-family: var(--font-head);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--white-pure);
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.topbar-logo span {
+  color: var(--red);
+}
+
+.topbar-time {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--slate);
+  text-align: right;
+  line-height: 1.4;
+}
+
+/* ─── BOTTOM NAV (mobile-first) ─── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 62px;
+  background: var(--navy-mid);
+  border-top: 2px solid var(--navy-border);
+  display: flex;
+  align-items: center;
+  z-index: 1000;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.bottom-nav::-webkit-scrollbar { display: none; }
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 72px;
+  height: 62px;
+  padding: 6px 4px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--slate);
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  gap: 4px;
+  transition: color var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-item svg { width: 22px; height: 22px; flex-shrink: 0; }
+
+.nav-item.active {
+  color: var(--white-pure);
+  position: relative;
+}
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 32px; height: 3px;
+  background: var(--red);
+  border-radius: 2px 2px 0 0;
+}
+
+/* ─── MAIN CONTENT ─── */
+.main-content {
+  margin-top: 56px;
+  margin-bottom: 62px;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page { display: none; padding: 16px; }
+.page.active { display: block; }
+
+/* ─── PAGE HEADER ─── */
+.page-header {
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--navy-border);
+}
+.page-header h1 {
+  font-family: var(--font-head);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--white-pure);
+  line-height: 1;
+}
+.page-header p {
+  font-size: 0.75rem;
+  color: var(--slate);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* ─── KPI CARDS ─── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.kpi-card {
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--red);
+}
+
+.kpi-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--slate);
+  margin-bottom: 6px;
+}
+
+.kpi-value {
+  font-family: var(--font-head);
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--white-pure);
+  line-height: 1;
+}
+
+.kpi-value.danger { color: var(--danger); }
+.kpi-value.warning { color: var(--warning); }
+.kpi-value.ok { color: var(--ok); }
+
+.kpi-sub {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--slate);
+  margin-top: 4px;
+}
+
+/* ─── CHART CARD ─── */
+.chart-card {
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius);
+  padding: 16px 12px;
+  margin-bottom: 16px;
+}
+.chart-title {
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--white-pure);
+  margin-bottom: 12px;
+}
+.chart-wrap { position: relative; height: 200px; }
+
+/* ─── TABLE ─── */
+.table-wrap {
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  min-width: 480px;
+}
+th {
+  background: var(--navy-mid);
+  color: var(--slate-light);
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--navy-border);
+  white-space: nowrap;
+}
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(30,61,107,0.5);
+  color: var(--white);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.025); }
+
+/* ─── STATUS BADGE ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.badge-green { background: rgba(46,204,113,0.15); color: var(--ok); border: 1px solid rgba(46,204,113,0.3); }
+.badge-yellow { background: rgba(243,156,18,0.15); color: var(--warning); border: 1px solid rgba(243,156,18,0.3); }
+.badge-red { background: rgba(231,76,60,0.15); color: var(--danger); border: 1px solid rgba(231,76,60,0.3); }
+.badge-blue { background: rgba(52,152,219,0.15); color: #5dade2; border: 1px solid rgba(52,152,219,0.3); }
+.badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* ─── BUTTONS ─── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-head);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-primary {
+  background: var(--red);
+  color: white;
+}
+.btn-primary:hover, .btn-primary:active { background: var(--red-soft); }
+
+.btn-secondary {
+  background: var(--navy-light);
+  color: var(--white);
+  border: 1px solid var(--navy-border);
+}
+.btn-secondary:hover, .btn-secondary:active { background: var(--navy-border); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--slate-light);
+  border: 1px solid var(--navy-border);
+  padding: 6px 10px;
+  font-size: 0.72rem;
+}
+.btn-sm { padding: 6px 10px; font-size: 0.72rem; }
+
+.btn-full { width: 100%; justify-content: center; }
+
+/* ─── FORM ─── */
+.form-section {
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.form-title {
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--white-pure);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--navy-border);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.form-group.full { grid-column: 1 / -1; }
+
+label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+input, select, textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius-sm);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  width: 100%;
+  outline: none;
+  transition: border-color var(--transition);
+  -webkit-appearance: none;
+  appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--red);
+}
+select option { background: var(--navy-mid); }
+textarea { resize: vertical; min-height: 80px; }
+
+/* ─── ALERT ITEMS ─── */
+.alert-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  border-left: 4px solid;
+}
+.alert-item.critical { border-left-color: var(--danger); }
+.alert-item.warning { border-left-color: var(--warning); }
+
+.alert-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.alert-info { flex: 1; min-width: 0; }
+.alert-title {
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--white-pure);
+}
+.alert-sub {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--slate);
+  margin-top: 2px;
+}
+.alert-km {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+.alert-km.critical { color: var(--danger); }
+.alert-km.warning { color: var(--warning); }
+
+/* ─── SECTION HEADER ─── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.section-label {
+  font-family: var(--font-head);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--slate-light);
+}
+
+/* ─── MODAL ─── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(5,10,20,0.85);
+  z-index: 2000;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 20px 16px 28px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.modal-handle {
+  width: 40px; height: 4px;
+  background: var(--navy-border);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.modal-title {
+  font-family: var(--font-head);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--white-pure);
+  margin-bottom: 16px;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.modal-actions .btn { flex: 1; }
+
+/* ─── TOAST ─── */
+.toast-wrap {
+  position: fixed;
+  bottom: 76px; left: 0; right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 3000;
+  gap: 6px;
+}
+.toast {
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-border);
+  border-left: 4px solid var(--red);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  color: var(--white);
+  pointer-events: auto;
+  box-shadow: var(--shadow);
+  animation: toastIn 0.25s ease;
+  max-width: 90%;
+}
+@keyframes toastIn { from { opacity:0; transform: translateY(8px); } }
+
+/* ─── PNEU CARD ─── */
+.pneu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.pneu-card {
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.pneu-pos {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.pneu-fogo {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white-pure);
+}
+.pneu-sulco {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+.sulco-ok { color: var(--ok); }
+.sulco-warn { color: var(--warning); }
+.sulco-crit { color: var(--danger); }
+
+/* ─── OS CARD (mobile list) ─── */
+.os-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.os-card {
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  border-left: 4px solid var(--navy-border);
+}
+.os-card.preventiva { border-left-color: #3498db; }
+.os-card.corretiva { border-left-color: var(--warning); }
+
+.os-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+.os-placa {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white-pure);
+}
+.os-cost {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ok);
+  font-weight: 500;
+}
+.os-desc {
+  font-size: 0.75rem;
+  color: var(--slate-light);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.os-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--slate);
+}
+
+/* ─── CONFIG ITEM ─── */
+.config-section {
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(30,61,107,0.5);
+}
+.config-row:last-child { border-bottom: none; }
+.config-key {
+  font-size: 0.8rem;
+  color: var(--slate-light);
+  font-weight: 500;
+}
+.config-val {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.config-val input {
+  width: 80px;
+  text-align: right;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+}
+
+/* ─── EMPTY STATE ─── */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--slate);
+}
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
+.empty-state p { font-size: 0.8rem; }
+
+/* ─── DESKTOP SIDEBAR OVERRIDE ─── */
+@media (min-width: 768px) {
+  body { flex-direction: row; }
+
+  .topbar { left: 220px; }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 220px;
+    background: var(--navy-mid);
+    border-right: 2px solid var(--navy-border);
+    z-index: 1001;
+    display: flex !important;
+    flex-direction: column;
+    padding-top: 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 2px solid var(--red);
+    font-family: var(--font-head);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--white-pure);
+    flex-shrink: 0;
+  }
+  .sidebar-logo span { color: var(--red); }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 16px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--slate);
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-align: left;
+    width: 100%;
+    border-left: 3px solid transparent;
+    transition: all var(--transition);
+  }
+  .sidebar-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .sidebar-item:hover { color: var(--white); background: rgba(255,255,255,0.04); }
+  .sidebar-item.active {
+    color: var(--white-pure);
+    background: rgba(192,57,43,0.1);
+    border-left-color: var(--red);
+  }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--navy-border);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--slate);
+    line-height: 1.6;
+  }
+
+  .bottom-nav { display: none !important; }
+
+  .main-content {
+    margin-left: 220px;
+    margin-bottom: 0;
+    flex: 1;
+  }
+
+  .topbar-logo { display: none; }
+
+  .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+  .pneu-grid { grid-template-columns: repeat(4, 1fr); }
+  .form-grid { grid-template-columns: repeat(3, 1fr); }
+  .os-list { display: none; }
+  .os-table-wrap { display: block !important; }
+  .chart-wrap { height: 280px; }
+  .page { padding: 24px; }
+}
+
+.os-table-wrap { display: none; }
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--navy-border); border-radius: 2px; }
+
+/* ─── UTILS ─── */
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.text-mono { font-family: var(--font-mono); }
+.text-sm { font-size: 0.75rem; }
+.text-muted { color: var(--slate); }
+.flex { display: flex; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.gap-8 { gap: 8px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-logo">CMMS <span>·</span> Frota</div>
+  <div class="topbar-time" id="topbar-time"></div>
+</div>
+
+<!-- SIDEBAR (desktop) -->
+<nav class="sidebar" id="sidebar" style="display:none">
+  <div class="sidebar-logo">CMMS <span>·</span> Frota</div>
+  <div class="sidebar-nav">
+    <button class="sidebar-item active" data-page="dashboard" onclick="navigate('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </button>
+    <button class="sidebar-item" data-page="veiculos" onclick="navigate('veiculos')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15l3 5h3a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><circle cx="6" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M10 17H8M3 17H1"/></svg>
+      Ativos
+    </button>
+    <button class="sidebar-item" data-page="preventiva" onclick="navigate('preventiva')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Preventiva
+    </button>
+    <button class="sidebar-item" data-page="pneus" onclick="navigate('pneus')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg>
+      Pneus
+    </button>
+    <button class="sidebar-item" data-page="os" onclick="navigate('os')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
+      Ordens de Serviço
+    </button>
+    <button class="sidebar-item" data-page="relatorios" onclick="navigate('relatorios')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Relatórios
+    </button>
+    <button class="sidebar-item" data-page="config" onclick="navigate('config')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      Configurações
+    </button>
+  </div>
+  <div class="sidebar-footer" id="sidebar-time"></div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div class="main-content">
+
+  <!-- ===== DASHBOARD ===== -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <h1>Dashboard</h1>
+      <p>Visão gerencial · Centro de Distribuição</p>
+    </div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+    <div class="chart-card">
+      <div class="chart-title">Custo de Manutenção por Mês (R$)</div>
+      <div class="chart-wrap"><canvas id="chart-custos"></canvas></div>
+    </div>
+    <div class="section-header">
+      <span class="section-label">Alertas Ativos</span>
+    </div>
+    <div class="alert-list" id="dash-alerts"></div>
+  </div>
+
+  <!-- ===== VEÍCULOS ===== -->
+  <div class="page" id="page-veiculos">
+    <div class="page-header">
+      <h1>Gestão de Ativos</h1>
+      <p>Cadastro e controle de frota</p>
+    </div>
+    <div class="section-header">
+      <span class="section-label">Frota Ativa</span>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-veiculo')">+ Cadastrar</button>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table id="table-veiculos">
+          <thead><tr>
+            <th>Placa</th><th>Modelo</th><th>Cat.</th><th>KM Atual</th><th>Status</th><th>Ações</th>
+          </tr></thead>
+          <tbody id="tbody-veiculos"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PREVENTIVA ===== -->
+  <div class="page" id="page-preventiva">
+    <div class="page-header">
+      <h1>Manutenção Preventiva</h1>
+      <p>Alertas automáticos por hodômetro</p>
+    </div>
+    <div class="section-header">
+      <span class="section-label">Alertas Críticos</span>
+    </div>
+    <div class="alert-list" id="list-criticos"></div>
+    <div class="section-header mt-12">
+      <span class="section-label">Agendamentos</span>
+    </div>
+    <div class="alert-list" id="list-agendamentos"></div>
+    <div class="section-header mt-12">
+      <span class="section-label">Registrar Substituição</span>
+    </div>
+    <div class="form-section">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Veículo</label>
+          <select id="prev-veiculo"></select>
+        </div>
+        <div class="form-group">
+          <label>Componente</label>
+          <select id="prev-componente">
+            <option value="oleo">Óleo do Motor</option>
+            <option value="filtro_comb">Filtro de Combustível</option>
+            <option value="filtro_ar">Filtro de Ar</option>
+            <option value="lona_freio">Lonas de Freio</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>KM da Troca</label>
+          <input type="number" id="prev-km" placeholder="Ex: 125000">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full mt-12" onclick="registrarTroca()">Registrar Troca</button>
+    </div>
+  </div>
+
+  <!-- ===== PNEUS ===== -->
+  <div class="page" id="page-pneus">
+    <div class="page-header">
+      <h1>Gestão de Pneus</h1>
+      <p>Controle de posição, sulco e recapagem</p>
+    </div>
+    <div class="section-header">
+      <span class="section-label">Pneus Cadastrados</span>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-pneu')">+ Cadastrar</button>
+    </div>
+    <div class="pneu-grid" id="pneu-grid"></div>
+  </div>
+
+  <!-- ===== ORDENS DE SERVIÇO ===== -->
+  <div class="page" id="page-os">
+    <div class="page-header">
+      <h1>Ordens de Serviço</h1>
+      <p>Registro e histórico de manutenções</p>
+    </div>
+    <div class="section-header">
+      <span class="section-label">Nova OS</span>
+    </div>
+    <div class="form-section">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Veículo</label>
+          <select id="os-veiculo"></select>
+        </div>
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="os-tipo">
+            <option value="preventiva">Preventiva</option>
+            <option value="corretiva">Corretiva</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data de Entrada</label>
+          <input type="date" id="os-entrada">
+        </div>
+        <div class="form-group">
+          <label>Data de Saída</label>
+          <input type="date" id="os-saida">
+        </div>
+        <div class="form-group">
+          <label>KM da OS</label>
+          <input type="number" id="os-km" placeholder="Ex: 130000">
+        </div>
+        <div class="form-group">
+          <label>Fornecedor / Oficina</label>
+          <input type="text" id="os-fornecedor" placeholder="Ex: Auto Diesel Norte">
+        </div>
+        <div class="form-group full">
+          <label>Descrição do Serviço / Falha</label>
+          <textarea id="os-descricao" placeholder="Descreva detalhadamente o serviço realizado ou a falha identificada..."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Peças Aplicadas</label>
+          <input type="text" id="os-pecas" placeholder="Ex: Filtro óleo, correia dentada...">
+        </div>
+        <div class="form-group">
+          <label>Custo de Peças (R$)</label>
+          <input type="number" id="os-custo-pecas" placeholder="0,00">
+        </div>
+        <div class="form-group">
+          <label>Custo Mão de Obra (R$)</label>
+          <input type="number" id="os-custo-mao" placeholder="0,00">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full mt-12" onclick="salvarOS()">Registrar Ordem de Serviço</button>
+    </div>
+    <!-- Mobile list -->
+    <div class="section-header">
+      <span class="section-label">Histórico de OS</span>
+    </div>
+    <div class="os-list" id="os-list"></div>
+    <!-- Desktop table -->
+    <div class="os-table-wrap table-wrap">
+      <div class="table-scroll">
+        <table id="table-os">
+          <thead><tr>
+            <th>Data</th><th>Placa</th><th>Tipo</th><th>Fornecedor</th><th>Descrição</th><th>Peças R$</th><th>M.O. R$</th><th>Total R$</th>
+          </tr></thead>
+          <tbody id="tbody-os"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== RELATÓRIOS ===== -->
+  <div class="page" id="page-relatorios">
+    <div class="page-header">
+      <h1>Relatórios</h1>
+      <p>Histórico financeiro e exportação</p>
+    </div>
+    <div class="kpi-grid" id="rel-kpis" style="grid-template-columns:1fr 1fr; margin-bottom:16px;"></div>
+    <div class="section-header">
+      <span class="section-label">Histórico Financeiro</span>
+      <button class="btn btn-primary btn-sm" onclick="exportarExcel()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Excel
+      </button>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Data</th><th>Placa</th><th>Tipo</th><th>Serviço</th><th>Fornecedor</th><th>Peças R$</th><th>M.O. R$</th><th>Total R$</th>
+          </tr></thead>
+          <tbody id="tbody-relatorio"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CONFIGURAÇÕES ===== -->
+  <div class="page" id="page-config">
+    <div class="page-header">
+      <h1>Configurações</h1>
+      <p>Ciclos de manutenção e parâmetros do sistema</p>
+    </div>
+    <div class="config-section">
+      <div class="form-title">Ciclos de Manutenção (km)</div>
+      <div class="config-row">
+        <span class="config-key">Óleo do Motor</span>
+        <div class="config-val">
+          <input type="number" id="cfg-oleo" value="20000">
+          <button class="btn btn-ghost btn-sm" onclick="salvarConfig()">OK</button>
+        </div>
+      </div>
+      <div class="config-row">
+        <span class="config-key">Filtro de Combustível</span>
+        <div class="config-val">
+          <input type="number" id="cfg-filtro-comb" value="15000">
+          <button class="btn btn-ghost btn-sm" onclick="salvarConfig()">OK</button>
+        </div>
+      </div>
+      <div class="config-row">
+        <span class="config-key">Filtro de Ar</span>
+        <div class="config-val">
+          <input type="number" id="cfg-filtro-ar" value="15000">
+          <button class="btn btn-ghost btn-sm" onclick="salvarConfig()">OK</button>
+        </div>
+      </div>
+      <div class="config-row">
+        <span class="config-key">Lonas de Freio</span>
+        <div class="config-val">
+          <input type="number" id="cfg-lona" value="40000">
+          <button class="btn btn-ghost btn-sm" onclick="salvarConfig()">OK</button>
+        </div>
+      </div>
+      <div class="config-row">
+        <span class="config-key">Alerta Amarelo (km antes)</span>
+        <div class="config-val">
+          <input type="number" id="cfg-alerta-km" value="2000">
+          <button class="btn btn-ghost btn-sm" onclick="salvarConfig()">OK</button>
+        </div>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="form-title">Dados do Sistema</div>
+      <div class="config-row">
+        <span class="config-key">Versão</span>
+        <span class="text-mono text-sm text-muted">CMMS v2.4.1</span>
+      </div>
+      <div class="config-row">
+        <span class="config-key">Total de Registros</span>
+        <span class="text-mono text-sm text-muted" id="cfg-total-reg">—</span>
+      </div>
+      <div class="config-row" style="margin-top:12px">
+        <span class="config-key" style="color:var(--danger)">Resetar Dados</span>
+        <button class="btn btn-ghost btn-sm" style="border-color:var(--danger);color:var(--danger)" onclick="resetarDados()">Resetar</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-content -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-item" data-page="veiculos" onclick="navigate('veiculos')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15l3 5h3a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><circle cx="6" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M10 17H8M3 17H1"/></svg>
+    Ativos
+  </button>
+  <button class="nav-item" data-page="preventiva" onclick="navigate('preventiva')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Alertas
+  </button>
+  <button class="nav-item" data-page="pneus" onclick="navigate('pneus')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg>
+    Pneus
+  </button>
+  <button class="nav-item" data-page="os" onclick="navigate('os')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+    O.S.
+  </button>
+  <button class="nav-item" data-page="relatorios" onclick="navigate('relatorios')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Relatórios
+  </button>
+  <button class="nav-item" data-page="config" onclick="navigate('config')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+    Config
+  </button>
+</nav>
+
+<!-- MODAL: VEÍCULO -->
+<div class="modal-overlay" id="modal-veiculo">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-veiculo-title">Cadastrar Ativo</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Placa</label>
+        <input type="text" id="v-placa" placeholder="ABC-1D23" maxlength="8">
+      </div>
+      <div class="form-group">
+        <label>Modelo</label>
+        <input type="text" id="v-modelo" placeholder="Ex: Scania R450">
+      </div>
+      <div class="form-group">
+        <label>Ano</label>
+        <input type="number" id="v-ano" placeholder="2022">
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <select id="v-categoria">
+          <option value="Cavalo">Cavalo Mecânico</option>
+          <option value="Carreta">Carreta</option>
+          <option value="VUC">VUC</option>
+          <option value="Truck">Truck</option>
+          <option value="Toco">Toco</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>KM Atual</label>
+        <input type="number" id="v-km" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="v-status">
+          <option value="Disponível">Disponível</option>
+          <option value="Em Rota">Em Rota</option>
+          <option value="Oficina">Em Oficina</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-veiculo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarVeiculo()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: KM UPDATE -->
+<div class="modal-overlay" id="modal-km">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Atualizar Hodômetro</div>
+    <input type="hidden" id="km-id">
+    <div class="form-group">
+      <label>Novo KM Atual</label>
+      <input type="number" id="km-novo" placeholder="Ex: 135000">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-km')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarKM()">Atualizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PNEU -->
+<div class="modal-overlay" id="modal-pneu">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Cadastrar Pneu</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Número de Fogo</label>
+        <input type="text" id="pneu-fogo" placeholder="Ex: PT-00482">
+      </div>
+      <div class="form-group">
+        <label>Posição</label>
+        <input type="text" id="pneu-pos" placeholder="Ex: D.D. Traseiro">
+      </div>
+      <div class="form-group">
+        <label>Veículo</label>
+        <select id="pneu-veiculo"></select>
+      </div>
+      <div class="form-group">
+        <label>Profundidade do Sulco (mm)</label>
+        <input type="number" id="pneu-sulco" placeholder="Ex: 6.5" step="0.1">
+      </div>
+      <div class="form-group full">
+        <label>Situação</label>
+        <select id="pneu-situacao">
+          <option value="Em Uso">Em Uso</option>
+          <option value="Recapagem">Aguardando Recapagem</option>
+          <option value="Descarte">Descarte</option>
+          <option value="Estoque">Estoque</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-pneu')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPneu()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ════════════════════════════════════════════════
+//  STORAGE HELPERS
+// ════════════════════════════════════════════════
+const DB = {
+  get: (k) => { try { return JSON.parse(localStorage.getItem('cmms_'+k)) || []; } catch { return []; } },
+  set: (k, v) => localStorage.setItem('cmms_'+k, JSON.stringify(v)),
+  getObj: (k, def={}) => { try { return JSON.parse(localStorage.getItem('cmms_'+k)) || def; } catch { return def; } },
+  setObj: (k, v) => localStorage.setItem('cmms_'+k, JSON.stringify(v))
+};
+
+// ════════════════════════════════════════════════
+//  MOCK DATA SEED
+// ════════════════════════════════════════════════
+function seedData() {
+  if (localStorage.getItem('cmms_seeded')) return;
+
+  const veiculos = [
+    { id: 1, placa: 'BRA-2E11', modelo: 'Scania R450', ano: 2021, categoria: 'Cavalo', km: 187400, status: 'Em Rota' },
+    { id: 2, placa: 'DEF-4G55', modelo: 'Mercedes Actros', ano: 2020, categoria: 'Cavalo', km: 223100, status: 'Disponível' },
+    { id: 3, placa: 'GHI-7K88', modelo: 'Volvo FH540', ano: 2022, categoria: 'Cavalo', km: 104600, status: 'Disponível' },
+    { id: 4, placa: 'JKL-3M22', modelo: 'Randon SR B-DT', ano: 2019, categoria: 'Carreta', km: 312000, status: 'Oficina' },
+    { id: 5, placa: 'MNO-9P77', modelo: 'Volkswagen Delivery', ano: 2023, categoria: 'VUC', km: 48200, status: 'Em Rota' },
+    { id: 6, placa: 'PQR-1T33', modelo: 'Ford Cargo 2430', ano: 2020, categoria: 'Truck', km: 156800, status: 'Disponível' },
+  ];
+
+  const trocas = [
+    { veiculoId: 1, componente: 'oleo',       km: 170000 },
+    { veiculoId: 1, componente: 'filtro_comb', km: 175000 },
+    { veiculoId: 1, componente: 'filtro_ar',  km: 175000 },
+    { veiculoId: 1, componente: 'lona_freio', km: 155000 },
+    { veiculoId: 2, componente: 'oleo',       km: 218000 },
+    { veiculoId: 2, componente: 'filtro_comb', km: 210000 },
+    { veiculoId: 2, componente: 'filtro_ar',  km: 210000 },
+    { veiculoId: 2, componente: 'lona_freio', km: 192000 },
+    { veiculoId: 3, componente: 'oleo',       km: 100000 },
+    { veiculoId: 3, componente: 'filtro_comb', km: 95000 },
+    { veiculoId: 3, componente: 'filtro_ar',  km: 95000 },
+    { veiculoId: 3, componente: 'lona_freio', km: 80000 },
+    { veiculoId: 4, componente: 'oleo',       km: 295000 },
+    { veiculoId: 4, componente: 'filtro_comb', km: 300000 },
+    { veiculoId: 4, componente: 'filtro_ar',  km: 300000 },
+    { veiculoId: 4, componente: 'lona_freio', km: 280000 },
+    { veiculoId: 5, componente: 'oleo',       km: 40000 },
+    { veiculoId: 5, componente: 'filtro_comb', km: 35000 },
+    { veiculoId: 5, componente: 'filtro_ar',  km: 35000 },
+    { veiculoId: 5, componente: 'lona_freio', km: 10000 },
+    { veiculoId: 6, componente: 'oleo',       km: 140000 },
+    { veiculoId: 6, componente: 'filtro_comb', km: 145000 },
+    { veiculoId: 6, componente: 'filtro_ar',  km: 145000 },
+    { veiculoId: 6, componente: 'lona_freio', km: 120000 },
+  ];
+
+  const pneus = [
+    { id: 1, fogo: 'PT-00482', posicao: 'D.D. Dianteiro', veiculoId: 1, sulco: 5.2, situacao: 'Em Uso' },
+    { id: 2, fogo: 'PT-00483', posicao: 'D.E. Dianteiro', veiculoId: 1, sulco: 5.0, situacao: 'Em Uso' },
+    { id: 3, fogo: 'PT-00484', posicao: 'T.D.D. Interno', veiculoId: 1, sulco: 3.1, situacao: 'Em Uso' },
+    { id: 4, fogo: 'PT-00485', posicao: 'T.D.D. Externo', veiculoId: 1, sulco: 2.8, situacao: 'Recapagem' },
+    { id: 5, fogo: 'PT-00510', posicao: 'D.D. Dianteiro', veiculoId: 2, sulco: 7.4, situacao: 'Em Uso' },
+    { id: 6, fogo: 'PT-00511', posicao: 'D.E. Dianteiro', veiculoId: 2, sulco: 7.2, situacao: 'Em Uso' },
+    { id: 7, fogo: 'PT-00601', posicao: 'D.D. Dianteiro', veiculoId: 5, sulco: 9.8, situacao: 'Em Uso' },
+    { id: 8, fogo: 'PT-00602', posicao: 'D.E. Dianteiro', veiculoId: 5, sulco: 9.6, situacao: 'Em Uso' },
+  ];
+
+  const os = [
+    { id:1, data:'2025-11-15', veiculoId:1, placa:'BRA-2E11', tipo:'preventiva', descricao:'Troca de óleo e filtro de óleo — revisão 170.000 km', pecas:'Filtro Mann HU 932/4n, Óleo Shell Rimula R5 LE 10W-30', fornecedor:'Auto Diesel Norte', custoPecas:420, custoMao:280, km:170000 },
+    { id:2, data:'2025-11-28', veiculoId:2, placa:'DEF-4G55', tipo:'corretiva', descricao:'Substituição de bomba d\'água — vazamento constatado', pecas:'Bomba d\'água DAYCO DP054', fornecedor:'Mecânica Pesada Sul', custoPecas:980, custoMao:650, km:218500 },
+    { id:3, data:'2025-12-10', veiculoId:4, placa:'JKL-3M22', tipo:'corretiva', descricao:'Reparo no sistema pneumático — falha na válvula de freio', pecas:'Válvula ARB, mangueiras 3/8"', fornecedor:'Randon Peças SP', custoPecas:760, custoMao:520, km:310000 },
+    { id:4, data:'2025-12-22', veiculoId:1, placa:'BRA-2E11', tipo:'preventiva', descricao:'Troca de filtros — combustível e ar', pecas:'Filtro comb. Mahle KL 440/27, Filtro ar Donaldson P611059', fornecedor:'Auto Diesel Norte', custoPecas:320, custoMao:180, km:175000 },
+    { id:5, data:'2026-01-08', veiculoId:3, placa:'GHI-7K88', tipo:'preventiva', descricao:'Revisão preventiva — troca de óleo e filtros', pecas:'Kit revisão Volvo original', fornecedor:'Volvo Trucks SP', custoPecas:1240, custoMao:380, km:100000 },
+    { id:6, data:'2026-01-25', veiculoId:6, placa:'PQR-1T33', tipo:'corretiva', descricao:'Substituição de embreagem — desgaste excessivo constatado', pecas:'Kit embreagem Ford Sachs', fornecedor:'Mecânica Pesada Sul', custoPecas:1850, custoMao:920, km:155000 },
+    { id:7, data:'2026-02-14', veiculoId:2, placa:'DEF-4G55', tipo:'preventiva', descricao:'Troca de óleo — revisão 220.000 km', pecas:'Óleo Shell Rimula R5 LE 10W-30', fornecedor:'Auto Diesel Norte', custoPecas:380, custoMao:180, km:220000 },
+    { id:8, data:'2026-03-02', veiculoId:5, placa:'MNO-9P77', tipo:'preventiva', descricao:'Revisão de 40.000 km — troca óleo e filtros', pecas:'Kit revisão VW 40k', fornecedor:'VW Caminhões SP', custoPecas:680, custoMao:250, km:40000 },
+    { id:9, data:'2026-03-19', veiculoId:4, placa:'JKL-3M22', tipo:'corretiva', descricao:'Troca de pneu — profundidade crítica de sulco', pecas:'Pneu Michelin X Line Energy D 295/80 R22.5', fornecedor:'Borracharia Confiança', custoPecas:2100, custoMao:120, km:311500 },
+    { id:10, data:'2026-04-05', veiculoId:1, placa:'BRA-2E11', tipo:'preventiva', descricao:'Lubrificação de quinta roda e inspeção de lonas', pecas:'Graxa Petrobras Lubrax, Lona freio Varga', fornecedor:'Auto Diesel Norte', custoPecas:540, custoMao:310, km:185000 },
+  ];
+
+  const config = { oleo: 20000, filtro_comb: 15000, filtro_ar: 15000, lona_freio: 40000, alertaKm: 2000 };
+
+  DB.set('veiculos', veiculos);
+  DB.set('trocas', trocas);
+  DB.set('pneus', pneus);
+  DB.set('os', os);
+  DB.setObj('config', config);
+  localStorage.setItem('cmms_seeded', '1');
+  localStorage.setItem('cmms_next_vid', '7');
+  localStorage.setItem('cmms_next_oid', '11');
+  localStorage.setItem('cmms_next_pid', '9');
+}
+
+// ════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item, .sidebar-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('[data-page="' + page + '"]').forEach(b => b.classList.add('active'));
+  renderPage(page);
+}
+
+function renderPage(page) {
+  const map = {
+    dashboard: renderDashboard,
+    veiculos: renderVeiculos,
+    preventiva: renderPreventiva,
+    pneus: renderPneus,
+    os: renderOS,
+    relatorios: renderRelatorios,
+    config: renderConfig
+  };
+  if (map[page]) map[page]();
+}
+
+// ════════════════════════════════════════════════
+//  CLOCK
+// ════════════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  const str = now.toLocaleDateString('pt-BR') + '\n' + now.toLocaleTimeString('pt-BR');
+  const el = document.getElementById('topbar-time');
+  if (el) el.textContent = str;
+  const sel = document.getElementById('sidebar-time');
+  if (sel) sel.innerHTML = now.toLocaleDateString('pt-BR') + '<br>' + now.toLocaleTimeString('pt-BR') + '<br><br>CMMS v2.4.1';
+}
+
+// ════════════════════════════════════════════════
+//  ALERTS ENGINE
+// ════════════════════════════════════════════════
+function getAlertas() {
+  const veiculos = DB.get('veiculos');
+  const trocas = DB.get('trocas');
+  const config = DB.getObj('config', { oleo:20000, filtro_comb:15000, filtro_ar:15000, lona_freio:40000, alertaKm:2000 });
+  const componentes = [
+    { key: 'oleo',       label: 'Óleo do Motor',          ciclo: config.oleo },
+    { key: 'filtro_comb', label: 'Filtro de Combustível', ciclo: config.filtro_comb },
+    { key: 'filtro_ar',  label: 'Filtro de Ar',           ciclo: config.filtro_ar },
+    { key: 'lona_freio', label: 'Lonas de Freio',         ciclo: config.lona_freio },
+  ];
+  const alertas = [];
+  veiculos.forEach(v => {
+    componentes.forEach(c => {
+      const troca = trocas.filter(t => t.veiculoId === v.id && t.componente === c.key)
+        .sort((a, b) => b.km - a.km)[0];
+      const kmUltima = troca ? troca.km : 0;
+      const kmProxima = kmUltima + c.ciclo;
+      const restante = kmProxima - v.km;
+      if (restante <= 0) {
+        alertas.push({ nivel: 'critical', veiculo: v.placa, modelo: v.modelo, componente: c.label, restante, kmProxima, veiculoId: v.id });
+      } else if (restante <= config.alertaKm) {
+        alertas.push({ nivel: 'warning', veiculo: v.placa, modelo: v.modelo, componente: c.label, restante, kmProxima, veiculoId: v.id });
+      }
+    });
+  });
+  return alertas;
+}
+
+// ════════════════════════════════════════════════
+//  DASHBOARD
+// ════════════════════════════════════════════════
+let chartInstance = null;
+
+function renderDashboard() {
+  const veiculos = DB.get('veiculos');
+  const os = DB.get('os');
+  const alertas = getAlertas();
+  const oficina = veiculos.filter(v => v.status === 'Oficina').length;
+  const criticos = alertas.filter(a => a.nivel === 'critical').length;
+
+  // CPK
+  let totalCusto = 0, totalKm = 0;
+  os.forEach(o => {
+    totalCusto += (o.custoPecas || 0) + (o.custoMao || 0);
+    totalKm += o.km || 0;
+  });
+  const cpk = totalKm > 0 ? (totalCusto / (totalKm / 1000)).toFixed(2) : '0.00';
+
+  const kpiGrid = document.getElementById('kpi-grid');
+  kpiGrid.innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Total de Veículos</div>
+      <div class="kpi-value">${veiculos.length}</div>
+      <div class="kpi-sub">frota ativa</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Em Oficina</div>
+      <div class="kpi-value ${oficina > 0 ? 'warning' : 'ok'}">${oficina}</div>
+      <div class="kpi-sub">imobilizados</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">CPK Médio</div>
+      <div class="kpi-value">R$${cpk}</div>
+      <div class="kpi-sub">custo por 1.000 km</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Alertas Críticos</div>
+      <div class="kpi-value ${criticos > 0 ? 'danger' : 'ok'}">${criticos}</div>
+      <div class="kpi-sub">requerem ação imediata</div>
+    </div>
+  `;
+
+  // Chart
+  const meses = ['Nov/25','Dez/25','Jan/26','Fev/26','Mar/26','Abr/26'];
+  const custosMes = [700, 1760, 1620, 560, 2820, 850];
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  const ctx = document.getElementById('chart-custos');
+  if (ctx) {
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: meses,
+        datasets: [{
+          label: 'Custo Total (R$)',
+          data: custosMes,
+          backgroundColor: 'rgba(192,57,43,0.7)',
+          borderColor: '#c0392b',
+          borderWidth: 1,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8899aa', font: { size: 10 } }, grid: { color: 'rgba(30,61,107,0.4)' } },
+          y: { ticks: { color: '#8899aa', font: { size: 10 }, callback: v => 'R$' + v.toLocaleString('pt-BR') }, grid: { color: 'rgba(30,61,107,0.4)' } }
+        }
+      }
+    });
+  }
+
+  // Alerts
+  const dashAlerts = document.getElementById('dash-alerts');
+  const top5 = alertas.slice(0, 5);
+  if (top5.length === 0) {
+    dashAlerts.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>Nenhum alerta pendente</p></div>';
+    return;
+  }
+  dashAlerts.innerHTML = top5.map(a => alertHtml(a)).join('');
+}
+
+function alertHtml(a) {
+  const icon = a.nivel === 'critical' ? '🔴' : '🟡';
+  const restLabel = a.restante <= 0
+    ? `${Math.abs(a.restante).toLocaleString('pt-BR')} km vencido`
+    : `${a.restante.toLocaleString('pt-BR')} km restantes`;
+  return `
+    <div class="alert-item ${a.nivel}">
+      <div class="alert-icon">${icon}</div>
+      <div class="alert-info">
+        <div class="alert-title">${a.veiculo} · ${a.componente}</div>
+        <div class="alert-sub">${a.modelo}</div>
+      </div>
+      <div class="alert-km ${a.nivel}">${restLabel}</div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════
+//  VEÍCULOS
+// ════════════════════════════════════════════════
+function renderVeiculos() {
+  const veiculos = DB.get('veiculos');
+  const tbody = document.getElementById('tbody-veiculos');
+  if (!veiculos.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--slate)">Nenhum ativo cadastrado</td></tr>'; return; }
+  tbody.innerHTML = veiculos.map(v => `
+    <tr>
+      <td class="text-mono" style="font-weight:600;color:var(--white-pure)">${v.placa}</td>
+      <td>${v.modelo} <span style="color:var(--slate);font-size:0.7rem">${v.ano}</span></td>
+      <td><span class="badge badge-blue">${v.categoria}</span></td>
+      <td class="text-mono">${Number(v.km).toLocaleString('pt-BR')} km</td>
+      <td>${statusBadge(v.status)}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="abrirKM(${v.id})">KM</button>
+        <button class="btn btn-ghost btn-sm" onclick="excluirVeiculo(${v.id})" style="color:var(--danger);border-color:var(--danger);margin-left:4px">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+function statusBadge(status) {
+  const map = { 'Disponível': 'badge-green', 'Em Rota': 'badge-blue', 'Oficina': 'badge-red' };
+  return `<span class="badge ${map[status] || 'badge-blue'}"><span class="badge-dot"></span>${status}</span>`;
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  // populate vehicle selects
+  const veiculos = DB.get('veiculos');
+  const opts = veiculos.map(v => `<option value="${v.id}">${v.placa} — ${v.modelo}</option>`).join('');
+  ['prev-veiculo', 'os-veiculo', 'pneu-veiculo'].forEach(sel => {
+    const el = document.getElementById(sel);
+    if (el) el.innerHTML = opts;
+  });
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function salvarVeiculo() {
+  const placa = document.getElementById('v-placa').value.trim().toUpperCase();
+  const modelo = document.getElementById('v-modelo').value.trim();
+  const ano = parseInt(document.getElementById('v-ano').value) || new Date().getFullYear();
+  const categoria = document.getElementById('v-categoria').value;
+  const km = parseInt(document.getElementById('v-km').value) || 0;
+  const status = document.getElementById('v-status').value;
+  if (!placa || !modelo) { toast('Preencha placa e modelo.'); return; }
+  const veiculos = DB.get('veiculos');
+  const nextId = parseInt(localStorage.getItem('cmms_next_vid') || '1');
+  veiculos.push({ id: nextId, placa, modelo, ano, categoria, km, status });
+  DB.set('veiculos', veiculos);
+  localStorage.setItem('cmms_next_vid', nextId + 1);
+  closeModal('modal-veiculo');
+  renderVeiculos();
+  toast('Ativo cadastrado com sucesso.');
+  ['v-placa','v-modelo','v-ano','v-km'].forEach(id => document.getElementById(id).value = '');
+}
+
+function excluirVeiculo(id) {
+  if (!confirm('Confirmar exclusão do ativo?')) return;
+  const veiculos = DB.get('veiculos').filter(v => v.id !== id);
+  DB.set('veiculos', veiculos);
+  renderVeiculos();
+  toast('Ativo removido.');
+}
+
+function abrirKM(id) {
+  document.getElementById('km-id').value = id;
+  document.getElementById('km-novo').value = '';
+  document.getElementById('modal-km').classList.add('open');
+}
+
+function salvarKM() {
+  const id = parseInt(document.getElementById('km-id').value);
+  const km = parseInt(document.getElementById('km-novo').value);
+  if (!km || km <= 0) { toast('Informe um KM válido.'); return; }
+  const veiculos = DB.get('veiculos').map(v => v.id === id ? { ...v, km } : v);
+  DB.set('veiculos', veiculos);
+  closeModal('modal-km');
+  renderVeiculos();
+  toast('Hodômetro atualizado.');
+}
+
+// ════════════════════════════════════════════════
+//  PREVENTIVA
+// ════════════════════════════════════════════════
+function renderPreventiva() {
+  const veiculos = DB.get('veiculos');
+  const opts = veiculos.map(v => `<option value="${v.id}">${v.placa} — ${v.modelo}</option>`).join('');
+  document.getElementById('prev-veiculo').innerHTML = opts;
+
+  const alertas = getAlertas();
+  const criticos = alertas.filter(a => a.nivel === 'critical');
+  const agendamentos = alertas.filter(a => a.nivel === 'warning');
+
+  const lc = document.getElementById('list-criticos');
+  lc.innerHTML = criticos.length ? criticos.map(alertHtml).join('') : '<div class="empty-state"><div class="icon">✅</div><p>Sem alertas críticos</p></div>';
+
+  const la = document.getElementById('list-agendamentos');
+  la.innerHTML = agendamentos.length ? agendamentos.map(alertHtml).join('') : '<div class="empty-state"><div class="icon">📋</div><p>Sem agendamentos pendentes</p></div>';
+}
+
+function registrarTroca() {
+  const veiculoId = parseInt(document.getElementById('prev-veiculo').value);
+  const componente = document.getElementById('prev-componente').value;
+  const km = parseInt(document.getElementById('prev-km').value);
+  if (!km || km <= 0) { toast('Informe o KM da troca.'); return; }
+  const trocas = DB.get('trocas');
+  trocas.push({ veiculoId, componente, km });
+  DB.set('trocas', trocas);
+  document.getElementById('prev-km').value = '';
+  toast('Troca registrada com sucesso.');
+  renderPreventiva();
+}
+
+// ════════════════════════════════════════════════
+//  PNEUS
+// ════════════════════════════════════════════════
+function renderPneus() {
+  const pneus = DB.get('pneus');
+  const veiculos = DB.get('veiculos');
+  const vMap = {};
+  veiculos.forEach(v => vMap[v.id] = v.placa);
+
+  const grid = document.getElementById('pneu-grid');
+  if (!pneus.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🚗</div><p>Nenhum pneu cadastrado</p></div>'; return; }
+
+  grid.innerHTML = pneus.map(p => {
+    const sulcoClass = p.sulco >= 5 ? 'sulco-ok' : p.sulco >= 3 ? 'sulco-warn' : 'sulco-crit';
+    const sulcoLabel = p.sulco >= 5 ? '✔ Adequado' : p.sulco >= 3 ? '⚠ Atenção' : '✕ Crítico';
+    return `<div class="pneu-card">
+      <div class="pneu-pos">${vMap[p.veiculoId] || '—'} · ${p.posicao}</div>
+      <div class="pneu-fogo">${p.fogo}</div>
+      <div class="pneu-sulco ${sulcoClass}">${p.sulco} mm · ${sulcoLabel}</div>
+      <div style="margin-top:6px">${pneuBadge(p.situacao)}</div>
+    </div>`;
+  }).join('');
+}
+
+function pneuBadge(sit) {
+  const map = { 'Em Uso':'badge-green','Recapagem':'badge-yellow','Descarte':'badge-red','Estoque':'badge-blue' };
+  return `<span class="badge ${map[sit]||'badge-blue'}">${sit}</span>`;
+}
+
+function salvarPneu() {
+  const fogo = document.getElementById('pneu-fogo').value.trim();
+  const posicao = document.getElementById('pneu-pos').value.trim();
+  const veiculoId = parseInt(document.getElementById('pneu-veiculo').value);
+  const sulco = parseFloat(document.getElementById('pneu-sulco').value) || 0;
+  const situacao = document.getElementById('pneu-situacao').value;
+  if (!fogo || !posicao) { toast('Preencha número de fogo e posição.'); return; }
+  const pneus = DB.get('pneus');
+  const nextId = parseInt(localStorage.getItem('cmms_next_pid') || '1');
+  pneus.push({ id: nextId, fogo, posicao, veiculoId, sulco, situacao });
+  DB.set('pneus', pneus);
+  localStorage.setItem('cmms_next_pid', nextId + 1);
+  closeModal('modal-pneu');
+  renderPneus();
+  toast('Pneu cadastrado.');
+}
+
+// ════════════════════════════════════════════════
+//  ORDENS DE SERVIÇO
+// ════════════════════════════════════════════════
+function renderOS() {
+  const veiculos = DB.get('veiculos');
+  const opts = veiculos.map(v => `<option value="${v.id}" data-placa="${v.placa}">${v.placa} — ${v.modelo}</option>`).join('');
+  document.getElementById('os-veiculo').innerHTML = opts;
+
+  // default date
+  const today = new Date().toISOString().split('T')[0];
+  if (!document.getElementById('os-entrada').value) document.getElementById('os-entrada').value = today;
+
+  const os = DB.get('os').slice().reverse();
+  const vMap = {};
+  veiculos.forEach(v => vMap[v.id] = v.placa);
+
+  // Mobile cards
+  const osList = document.getElementById('os-list');
+  if (osList) {
+    osList.innerHTML = os.length ? os.map(o => {
+      const total = ((o.custoPecas||0) + (o.custoMao||0)).toLocaleString('pt-BR', {style:'currency',currency:'BRL'});
+      return `<div class="os-card ${o.tipo}">
+        <div class="os-header">
+          <div class="os-placa">${o.placa || vMap[o.veiculoId] || '—'}</div>
+          <div class="os-cost">${total}</div>
+        </div>
+        <div class="os-desc">${o.descricao}</div>
+        <div class="os-meta">
+          <span>${o.data}</span>
+          <span>·</span>
+          <span>${o.tipo}</span>
+          <span>·</span>
+          <span>${o.fornecedor}</span>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty-state"><div class="icon">📄</div><p>Nenhuma OS registrada</p></div>';
+  }
+
+  // Desktop table
+  const tbody = document.getElementById('tbody-os');
+  if (tbody) {
+    tbody.innerHTML = os.map(o => {
+      const total = (o.custoPecas||0) + (o.custoMao||0);
+      return `<tr>
+        <td class="text-mono">${o.data}</td>
+        <td style="font-weight:600">${o.placa || vMap[o.veiculoId] || '—'}</td>
+        <td>${tipoBadge(o.tipo)}</td>
+        <td>${o.fornecedor}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${o.descricao}</td>
+        <td class="text-mono">R$ ${(o.custoPecas||0).toLocaleString('pt-BR')}</td>
+        <td class="text-mono">R$ ${(o.custoMao||0).toLocaleString('pt-BR')}</td>
+        <td class="text-mono" style="color:var(--ok);font-weight:600">R$ ${total.toLocaleString('pt-BR')}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function tipoBadge(tipo) {
+  return tipo === 'preventiva'
+    ? '<span class="badge badge-blue">Preventiva</span>'
+    : '<span class="badge badge-yellow">Corretiva</span>';
+}
+
+function salvarOS() {
+  const veiculoSel = document.getElementById('os-veiculo');
+  const veiculoId = parseInt(veiculoSel.value);
+  const placa = veiculoSel.options[veiculoSel.selectedIndex]?.dataset.placa || '';
+  const tipo = document.getElementById('os-tipo').value;
+  const data = document.getElementById('os-entrada').value;
+  const saida = document.getElementById('os-saida').value;
+  const km = parseInt(document.getElementById('os-km').value) || 0;
+  const fornecedor = document.getElementById('os-fornecedor').value.trim();
+  const descricao = document.getElementById('os-descricao').value.trim();
+  const pecas = document.getElementById('os-pecas').value.trim();
+  const custoPecas = parseFloat(document.getElementById('os-custo-pecas').value) || 0;
+  const custoMao = parseFloat(document.getElementById('os-custo-mao').value) || 0;
+
+  if (!data || !descricao) { toast('Preencha data e descrição do serviço.'); return; }
+
+  const os = DB.get('os');
+  const nextId = parseInt(localStorage.getItem('cmms_next_oid') || '1');
+  os.push({ id: nextId, data, saida, veiculoId, placa, tipo, descricao, pecas, fornecedor, custoPecas, custoMao, km });
+  DB.set('os', os);
+  localStorage.setItem('cmms_next_oid', nextId + 1);
+
+  // Update vehicle KM if provided
+  if (km > 0) {
+    const veiculos = DB.get('veiculos').map(v => v.id === veiculoId && km > v.km ? { ...v, km } : v);
+    DB.set('veiculos', veiculos);
+  }
+
+  ['os-km','os-fornecedor','os-descricao','os-pecas','os-custo-pecas','os-custo-mao','os-saida'].forEach(id => document.getElementById(id).value = '');
+  renderOS();
+  toast('Ordem de Serviço registrada.');
+}
+
+// ════════════════════════════════════════════════
+//  RELATÓRIOS
+// ════════════════════════════════════════════════
+function renderRelatorios() {
+  const os = DB.get('os');
+  const veiculos = DB.get('veiculos');
+  const vMap = {};
+  veiculos.forEach(v => vMap[v.id] = v.placa);
+
+  let totalPecas = 0, totalMao = 0;
+  os.forEach(o => { totalPecas += o.custoPecas||0; totalMao += o.custoMao||0; });
+  const total = totalPecas + totalMao;
+
+  const relKpis = document.getElementById('rel-kpis');
+  relKpis.innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Total OS</div>
+      <div class="kpi-value">${os.length}</div>
+      <div class="kpi-sub">ordens registradas</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Custo Total</div>
+      <div class="kpi-value" style="font-size:1.4rem">R$${total.toLocaleString('pt-BR')}</div>
+      <div class="kpi-sub">peças + M.O.</div>
+    </div>
+  `;
+
+  const tbody = document.getElementById('tbody-relatorio');
+  tbody.innerHTML = os.slice().reverse().map(o => {
+    const t = (o.custoPecas||0) + (o.custoMao||0);
+    return `<tr>
+      <td class="text-mono">${o.data}</td>
+      <td style="font-weight:600">${o.placa || vMap[o.veiculoId] || '—'}</td>
+      <td>${tipoBadge(o.tipo)}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${o.descricao}</td>
+      <td>${o.fornecedor}</td>
+      <td class="text-mono">R$ ${(o.custoPecas||0).toLocaleString('pt-BR')}</td>
+      <td class="text-mono">R$ ${(o.custoMao||0).toLocaleString('pt-BR')}</td>
+      <td class="text-mono" style="color:var(--ok);font-weight:600">R$ ${t.toLocaleString('pt-BR')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportarExcel() {
+  const os = DB.get('os');
+  const veiculos = DB.get('veiculos');
+  const vMap = {};
+  veiculos.forEach(v => vMap[v.id] = v.placa);
+
+  const data = [
+    ['Data', 'Placa', 'Tipo', 'KM OS', 'Descrição', 'Peças Aplicadas', 'Fornecedor', 'Custo Peças R$', 'Custo M.O. R$', 'Total R$']
+  ];
+  os.forEach(o => {
+    data.push([
+      o.data, o.placa || vMap[o.veiculoId] || '—', o.tipo.toUpperCase(), o.km||0,
+      o.descricao, o.pecas||'—', o.fornecedor,
+      o.custoPecas||0, o.custoMao||0,
+      (o.custoPecas||0)+(o.custoMao||0)
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [10,14,12,10,40,30,20,14,14,14].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Histórico de Manutenções');
+  XLSX.writeFile(wb, `CMMS_Relatorio_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast('Relatório Excel gerado com sucesso.');
+}
+
+// ════════════════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════════════════
+function renderConfig() {
+  const config = DB.getObj('config', { oleo:20000, filtro_comb:15000, filtro_ar:15000, lona_freio:40000, alertaKm:2000 });
+  document.getElementById('cfg-oleo').value = config.oleo || 20000;
+  document.getElementById('cfg-filtro-comb').value = config.filtro_comb || 15000;
+  document.getElementById('cfg-filtro-ar').value = config.filtro_ar || 15000;
+  document.getElementById('cfg-lona').value = config.lona_freio || 40000;
+  document.getElementById('cfg-alerta-km').value = config.alertaKm || 2000;
+
+  const os = DB.get('os');
+  const veiculos = DB.get('veiculos');
+  const pneus = DB.get('pneus');
+  document.getElementById('cfg-total-reg').textContent = `${veiculos.length} veículos · ${os.length} OS · ${pneus.length} pneus`;
+}
+
+function salvarConfig() {
+  const config = {
+    oleo: parseInt(document.getElementById('cfg-oleo').value) || 20000,
+    filtro_comb: parseInt(document.getElementById('cfg-filtro-comb').value) || 15000,
+    filtro_ar: parseInt(document.getElementById('cfg-filtro-ar').value) || 15000,
+    lona_freio: parseInt(document.getElementById('cfg-lona').value) || 40000,
+    alertaKm: parseInt(document.getElementById('cfg-alerta-km').value) || 2000
+  };
+  DB.setObj('config', config);
+  toast('Configurações salvas.');
+}
+
+function resetarDados() {
+  if (!confirm('ATENÇÃO: Esta ação irá apagar TODOS os dados do sistema. Confirmar?')) return;
+  Object.keys(localStorage).filter(k => k.startsWith('cmms_')).forEach(k => localStorage.removeItem(k));
+  location.reload();
+}
+
+// ════════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════════
+function toast(msg) {
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ════════════════════════════════════════════════
+//  CLOSE MODAL ON OVERLAY CLICK
+// ════════════════════════════════════════════════
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+function init() {
+  seedData();
+  updateClock();
+  setInterval(updateClock, 1000);
+  renderDashboard();
+  // show sidebar on desktop
+  if (window.innerWidth >= 768) {
+    document.getElementById('sidebar').style.display = 'flex';
+  }
+  window.addEventListener('resize', () => {
+    document.getElementById('sidebar').style.display = window.innerWidth >= 768 ? 'flex' : 'none';
+  });
+}
+
+init();
+</script>
+</body>
+</html>
